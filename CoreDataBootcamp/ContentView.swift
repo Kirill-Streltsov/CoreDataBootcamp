@@ -10,67 +10,107 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-
+    
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
-
+        entity: FruitEntity.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \FruitEntity.name, ascending: true)])
+    private var fruits: FetchedResults<FruitEntity>
+    
+    @State private var fruitText = ""
+    @State private var presentAlert = false
+    @State private var updatedFruitName = ""
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
-                    }
+            VStack {
+                TextField("Add fruit here...", text: $fruitText)
+                    .font(.headline)
+                    .padding(.leading)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 55)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                Button {
+                    addItem()
+                } label: {
+                    Text("Button")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 55)
+                        .background(Color.blue)
+                        .cornerRadius(10)
                 }
-                .onDelete(perform: deleteItems)
+                .padding(.horizontal)
+                List {
+                    ForEach(fruits) { fruit in
+                        Text(fruit.name ?? "")
+                            .onTapGesture {
+                                presentAlert = true
+                                print(fruit.name ?? "")
+                            }
+                            .alert("Update fruit", isPresented: $presentAlert) {
+                                TextField("Enter new fruit name...", text: $updatedFruitName)
+                                Button("Update") {
+                                    updateItem(fruit: fruit)
+                                }
+                                Button("Cancel", role: .cancel, action: {})
+                            } message: {
+                                Text("Update the name for \(fruit.name ?? "")")
+                            }
+                    }
+                    .onDelete(perform: deleteItems)
+                }
+                
+                .listStyle(.plain)
             }
+            .navigationTitle("Fruits")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
                     Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                        Label("Add item", systemImage: "plus")
                     }
                 }
             }
-            Text("Select an item")
         }
     }
-
+    
     private func addItem() {
         withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            let newItem = FruitEntity(context: viewContext)
+            newItem.name = fruitText
+            saveItems()
         }
     }
-
+    
+    private func updateItem(fruit: FruitEntity) {
+        withAnimation {
+            fruit.name = updatedFruitName
+            saveItems()
+        }
+    }
+    
     private func deleteItems(offsets: IndexSet) {
         withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            guard let index = offsets.first else { return }
+            let fruitEntity = fruits[index]
+            viewContext.delete(fruitEntity)
+            
+            saveItems()
         }
+    }
+    
+    private func saveItems() {
+        
+        do {
+            try viewContext.save()
+        } catch {
+            // Replace this implementation with code to handle the error appropriately.
+            // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+            let nsError = error as NSError
+            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+        }
+        
     }
 }
 
